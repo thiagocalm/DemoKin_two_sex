@@ -10,6 +10,7 @@ library(tidyr)
 library(dplyr)
 library(ggplot2)
 library(knitr)
+library(patchwork)
 
 # Scenario 1: we have all data ----------------------------------------------
 
@@ -135,17 +136,16 @@ bind_rows(
     kin == "m" ~ "Mother/Father"
   )) |>
   ggplot(aes(x = as.numeric(age_focal), y = count, linetype = type, color = type)) +
-  geom_line(linewidth = 1.05) +
-  scale_x_continuous(breaks = seq(0,100,10)) +
+  geom_line(linewidth = 1.1) +
   theme_light() +
   labs(
-    title = "Number of kin by the female age focal. ",
-    caption = "Source: DemoKin package data for example.",
+    title = "Number of kin (both sex) by different methods for estimate the male's kin, using female age focal as reference",
+    caption = "Source: DemoKin package data for example",
     x = "Age focal",
     y = "Number of kin"
   ) +
   scale_color_manual(values = c("#35978f","#4d4d4d", "#993404")) +
-  facet_grid(col = vars(kin), scales = "free") +
+  lemon::facet_rep_grid(.~kin, repeat.tick.labels = TRUE) +
   theme(
     plot.title = element_text(face = "bold", size = 12, hjust = 0),
     plot.caption = element_text(size = 9),
@@ -193,7 +193,7 @@ bind_rows(
   geom_line(linewidth = 1.05) +
     theme_light() +
     labs(
-      title = "Ratio between (i)'GKP factor'/'Full data' and (ii)'Alternative'/'Full data' \nnumber of kin by the female age focal",
+      title = "Ratio between (i)'GKP factor'/'Full data' and (ii)'Alternative'/'Full data' number of kin by the female age focal",
       caption = "Source: DemoKin package data for example.",
       x = "Age focal",
       y = "Ratio between scenarios"
@@ -213,3 +213,84 @@ bind_rows(
       panel.grid = element_line(color = "#f0f0f0",linewidth = .01)
     )
 
+# Comparing Alternative method and Full data by sex
+
+
+graph_pt1 <- kin_sc1_out |>
+  mutate(type = "Full") |>
+  bind_rows(kin_sc3_out |> mutate(type = "Alternative")) |>
+  group_by(type, kin, age_focal, sex_kin) |>
+  summarise(count=sum(count_living)) |>
+  mutate(kin = case_when(
+    kin == "d" ~ "Daugther/Son",
+    kin == "a" ~ "Aunt/Uncle",
+    kin == "ggm" ~ "Great-Grandmother/father",
+    kin == "gm" ~ "Grandmother/father",
+    kin == "m" ~ "Mother/Father"
+  )) |>
+  ggplot() +
+  aes(x = age_focal, y = count, fill = sex_kin) +
+  geom_area()+
+  lemon::facet_rep_grid(kin~type, repeat.tick.labels = TRUE) +
+  theme_light() +
+  labs(
+    title = "Number of kin by sex, using female age focal as reference",
+    caption = "Source: DemoKin package data for example.",
+    x = "Age focal",
+    y = "Number of kin"
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  theme(
+    plot.title = element_text(face = "bold", size = 12, hjust = 0),
+    plot.caption = element_text(size = 9),
+    legend.title = element_text(face = "bold", size = 9, hjust = 0, vjust = .5),
+    legend.text = element_text(size = 8, hjust = 0, vjust = .5),
+    legend.position = "bottom",
+    axis.title = element_text(face = "bold", size = 10, hjust = 1, vjust = .5),
+    axis.text = element_text(face = "bold", size = 8, color = "#636363", hjust = .5, vjust = .5),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold", size = 9, color = "#636363", hjust = .9, vjust = .5),
+    panel.grid = element_line(color = "#f0f0f0",linewidth = .01)
+  )
+
+graph_pt2 <- kin_sc1_out |>
+  mutate(type = "Full") |>
+  bind_rows(kin_sc3_out |> mutate(type = "Alternative")) |>
+  group_by(type, kin, age_focal, sex_kin) |>
+  summarise(count=sum(count_living)) |>
+  pivot_wider(names_from = "type", values_from = "count") |>
+  mutate(kin = case_when(
+    kin == "d" ~ "Daugther/Son",
+    kin == "a" ~ "Aunt/Uncle",
+    kin == "ggm" ~ "Great-Grandmother/father",
+    kin == "gm" ~ "Grandmother/father",
+    kin == "m" ~ "Mother/Father"
+  )) |>
+  mutate(ratio = `Alternative`/`Full`) |>
+  ggplot() +
+  aes(x = age_focal, y = ratio, color = sex_kin) +
+  geom_hline(yintercept = 1, color = "black", linetype = "dashed", linewidth = 1.1) +
+  geom_line(linewidth = 1.05) +
+  lemon::facet_rep_grid(kin~., repeat.tick.labels = TRUE,scales = "free") +
+  theme_light() +
+  labs(
+    title = "Ratio between Alternative by Full methods to measure the male's kin, by the female age focal",
+    caption = "Source: DemoKin package data for example",
+    x = "Age focal",
+    y = "Alternative/Full method to count the number of kin"
+  ) +
+  scale_color_brewer(palette = "Set2") +
+  theme(
+    plot.title = element_text(face = "bold", size = 12, hjust = 0),
+    plot.caption = element_text(size = 9),
+    legend.title = element_text(face = "bold", size = 9, hjust = 0, vjust = .5),
+    legend.text = element_text(size = 8, hjust = 0, vjust = .5),
+    legend.position = "bottom",
+    axis.title = element_text(face = "bold", size = 10, hjust = 1, vjust = .5),
+    axis.text = element_text(face = "bold", size = 8, color = "#636363", hjust = .5, vjust = .5),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold", size = 9, color = "#636363", hjust = .9, vjust = .5),
+    panel.grid = element_line(color = "#f0f0f0",linewidth = .01)
+  )
+
+graph_pt1+graph_pt2
